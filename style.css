@@ -1,0 +1,362 @@
+/* =========================================================
+ * 潜水艦あてゲーム スタイル
+ * 画面はスクロールさせず、盤面サイズは --cell（1マスの大きさ）で調整する
+ * ========================================================= */
+
+:root {
+  --bg: #0d1a2b;
+  --panel: #15273f;
+  --line: #2b4466;
+  --text: #e8eef7;
+  --muted: #8ea3bf;
+  --accent: #3ec6e8;
+  --danger: #ff5a52;
+
+  /* 船の色（テトリス風） */
+  --s2: #f5cf2f; /* 黄 */
+  --s3: #35c3e6; /* 水色 */
+  --s4: #a25ae0; /* 紫 */
+  --s5: #ec4a3f; /* 赤 */
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;            /* ページ全体はスクロールさせない */
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Meiryo", sans-serif;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ---------- 画面切り替え ---------- */
+.screen {
+  display: none;
+  height: 100vh;
+  height: 100dvh;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 12px;
+  gap: 10px;
+}
+.screen.active { display: flex; }
+
+/* ---------- ボタン ---------- */
+.btn {
+  font: inherit;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--panel);
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 16px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn:hover:not(:disabled) { border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #062033; }
+.btn.big { font-size: 1.3rem; padding: 14px 40px; }
+.btn.small { padding: 4px 10px; font-size: .85rem; }
+.btn.link { background: none; border: none; color: var(--muted); text-decoration: underline; }
+.btn:disabled { opacity: .35; cursor: default; }
+
+/* ---------- タイトル ---------- */
+#screen-title { justify-content: center; }
+.title-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  text-align: center;
+}
+.title-box h1 { margin: 0; font-size: clamp(1.8rem, 8vw, 3rem); letter-spacing: .05em; }
+.subtitle { margin: 0; color: var(--muted); }
+
+.level-select { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.level-label { color: var(--muted); font-size: .9rem; }
+.seg { display: flex; border: 2px solid var(--line); border-radius: 10px; overflow: hidden; }
+.seg input { display: none; }
+.seg span { display: block; padding: 8px 18px; cursor: pointer; }
+.seg input:checked + span { background: var(--accent); color: #062033; font-weight: 700; }
+
+/* ---------- 上部バー ---------- */
+.topbar {
+  width: 100%;
+  max-width: 900px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.topbar-text h2 { margin: 0; font-size: 1.1rem; }
+.hint { margin: 2px 0 0; color: var(--muted); font-size: .8rem; }
+
+/* ---------- 盤面（共通） ---------- */
+.board-wrap {
+  --label: max(14px, calc(var(--cell) * .45));
+  display: grid;
+  grid-template-columns: var(--label) calc(var(--cell) * 6);
+  grid-template-rows: var(--label) calc(var(--cell) * 6);
+}
+.col-labels, .row-labels {
+  display: grid;
+  color: var(--muted);
+  font-size: max(10px, calc(var(--cell) * .3));
+  font-weight: 700;
+}
+.col-labels { grid-column: 2; grid-row: 1; grid-template-columns: repeat(6, 1fr); }
+.row-labels { grid-column: 1; grid-row: 2; grid-template-rows: repeat(6, 1fr); }
+.col-labels span, .row-labels span { display: flex; align-items: center; justify-content: center; }
+
+.board {
+  grid-column: 2;
+  grid-row: 2;
+  position: relative;          /* 配置済みの船を重ねるため */
+  box-sizing: content-box;     /* 枠線の内側がちょうど 6 マス分 */
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  grid-template-rows: repeat(6, 1fr);
+  border: 2px solid var(--line);
+  background: #10233a;
+  touch-action: none;          /* スマホでなぞってもスクロールしない */
+}
+.cell {
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: calc(var(--cell) * .5);
+  position: relative;
+}
+
+/* 予想盤面に書き込んだ値 */
+.cell.v2 { background: color-mix(in srgb, var(--s2) 30%, transparent); color: var(--s2); }
+.cell.v3 { background: color-mix(in srgb, var(--s3) 30%, transparent); color: var(--s3); }
+.cell.v4 { background: color-mix(in srgb, var(--s4) 30%, transparent); color: #c99bf0; }
+.cell.v5 { background: color-mix(in srgb, var(--s5) 30%, transparent); color: #ff8a80; }
+.cell.vx { color: var(--muted); }
+/* 質問して確定したマス：内側に縁取り */
+.cell.locked { box-shadow: inset 0 0 0 3px #e8eef7; }
+.cell.locked.v2, .cell.locked.v3, .cell.locked.v4, .cell.locked.v5 { filter: saturate(1.3); }
+
+/* 質問ツール選択中はマスをクリックできることを示す */
+.board.ask-mode .cell:not(.locked) { cursor: crosshair; }
+.board.ask-mode .cell:not(.locked):hover { background-color: rgba(62, 198, 232, .25); }
+
+/* 船を塗ったマス（自分の盤面・結果表示用） */
+.cell.ship2 { background: var(--s2); color: #3a2f00; }
+.cell.ship3 { background: var(--s3); color: #00303b; }
+.cell.ship4 { background: var(--s4); color: #250a3d; }
+.cell.ship5 { background: var(--s5); color: #3d0805; }
+
+/* 結果で間違っていたマス */
+.cell.wrong { box-shadow: inset 0 0 0 3px var(--danger); background-color: rgba(255, 90, 82, .45); }
+
+/* ---------- 船（配置フェーズ） ---------- */
+.ship { display: flex; touch-action: none; cursor: grab; }
+.ship.vertical { flex-direction: column; }
+.ship[data-len="2"] { --c: var(--s2); }
+.ship[data-len="3"] { --c: var(--s3); }
+.ship[data-len="4"] { --c: var(--s4); }
+.ship[data-len="5"] { --c: var(--s5); }
+
+.ship-cell { width: var(--cell); height: var(--cell); padding: 2px; }
+.ship-cell::before {
+  /* テトリスのブロック風：明るい縁＋暗い縁 */
+  content: "";
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--c);
+  box-shadow:
+    inset 3px 3px 0 rgba(255, 255, 255, .35),
+    inset -3px -3px 0 rgba(0, 0, 0, .3);
+}
+
+/* トレイ上の船は薄く、グリッドに置いた船は濃く */
+.tray .ship { --cell: var(--tcell); opacity: .55; }
+.ship.placed { position: absolute; z-index: 2; }
+.ship.placed .ship-cell { width: auto; height: auto; flex: 1; }
+.ship.placed .ship-cell::before { filter: saturate(1.2) brightness(.95); }
+
+.ship.drag-source { opacity: .15 !important; }
+.ship.ghost {
+  position: fixed;
+  z-index: 100;
+  pointer-events: none;
+  opacity: .85;
+  cursor: grabbing;
+}
+
+/* ドラッグ中のプレビュー */
+.cell.blocked { background: rgba(255, 90, 82, .28); }
+.cell.preview-ok { background: rgba(62, 198, 232, .35); }
+.cell.preview-ng { background: rgba(255, 90, 82, .65); }
+
+/* ---------- 配置フェーズのレイアウト ---------- */
+.place-main {
+  --cell: min(11vw, 6.2dvh, 54px);
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+.tray {
+  --tcell: min(4.2vw, 3.4dvh, 26px);
+  display: grid;
+  grid-template-columns: repeat(4, calc(var(--tcell) * 5));
+  gap: min(3vw, 18px);
+  justify-content: center;
+}
+.slot { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.slot-label { font-size: .75rem; color: var(--muted); }
+.holder {
+  width: calc(var(--tcell) * 5);
+  height: calc(var(--tcell) * 5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+}
+.footer {
+  width: 100%;
+  max-width: 900px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.footer-left { display: flex; gap: 8px; }
+
+/* ---------- 攻撃フェーズのレイアウト ---------- */
+.attack-top { justify-content: space-between; }
+#turn-status { display: flex; flex-direction: column; min-width: 0; }
+.turn-label { font-weight: 800; font-size: 1.1rem; }
+.turn-label.player { color: var(--accent); }
+.turn-label.cpu { color: #ffb648; }
+.turn-msg { font-size: .8rem; color: var(--muted); }
+.btn.declare { background: #ffb648; border-color: #ffb648; color: #3a2400; font-size: 1.05rem; }
+
+.attack-layout {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: auto 260px;
+  gap: 20px;
+  justify-content: center;
+  align-content: center;
+}
+.main-col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.side-col { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+#guess-board-host { --cell: min(8.5dvh, 6vw, 64px); }
+#mini-board-host { --cell: min(4dvh, 30px); }
+.panel-title { font-size: .8rem; color: var(--muted); font-weight: 700; }
+.mini-wrap .cell { font-size: calc(var(--cell) * .55); }
+
+.log-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.log {
+  flex: 1;
+  min-height: 60px;
+  margin: 0;
+  padding: 6px 8px;
+  list-style: none;
+  overflow-y: auto;            /* ログだけは中でスクロール */
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: .8rem;
+  line-height: 1.5;
+}
+.log li.player .who { color: var(--accent); }
+.log li.cpu .who { color: #ffb648; }
+.log li.system { color: var(--muted); }
+.who { font-weight: 700; margin-right: 4px; }
+
+/* 書き込みツール */
+.toolbar { display: flex; gap: 6px; flex-wrap: nowrap; }
+.tool {
+  font: inherit;
+  font-weight: 800;
+  width: min(11vw, 52px);
+  height: min(11vw, 48px);
+  border-radius: 8px;
+  border: 2px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 1.05rem;
+}
+.tool.ask { width: min(15vw, 64px); font-size: .9rem; color: var(--accent); }
+.tool.t2 { color: var(--s2); }
+.tool.t3 { color: var(--s3); }
+.tool.t4 { color: #c99bf0; }
+.tool.t5 { color: #ff8a80; }
+.tool.erase { font-size: .9rem; }
+.tool.active { border-color: var(--text); background: #24405f; box-shadow: 0 0 0 2px var(--accent); }
+
+/* ---------- 結果画面 ---------- */
+#screen-result { justify-content: center; }
+.result-head { text-align: center; }
+.result-head h2 { margin: 0; font-size: clamp(1.6rem, 7vw, 2.4rem); }
+.result-head h2.win { color: var(--accent); }
+.result-head h2.lose { color: var(--danger); }
+.result-head p { margin: 4px 0 0; color: var(--muted); }
+.result-boards { display: flex; gap: min(4vw, 40px); }
+.result-col { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+#result-left, #result-right { --cell: min(6.3vw, 7dvh, 50px); }
+.result-buttons { display: flex; gap: 12px; }
+
+/* ---------- ダイアログ ---------- */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 16px;
+}
+.modal.hidden { display: none; }
+.modal-box {
+  background: var(--panel);
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  padding: 20px;
+  max-width: 420px;
+  width: 100%;
+  max-height: 90dvh;
+  overflow-y: auto;
+}
+.modal-box ul { margin: 6px 0 12px; padding-left: 1.2em; color: #ffb4ae; }
+.modal-box p { margin: 6px 0; line-height: 1.6; }
+.modal-buttons { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; }
+
+/* ---------- 縦長画面（スマホ）用 ---------- */
+@media (max-aspect-ratio: 1/1) {
+  .attack-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 8px;
+    width: 100%;
+    align-content: start;
+  }
+  #guess-board-host { --cell: min(12vw, 6.2dvh, 60px); }
+  .side-col { flex-direction: row; }
+  #mini-board-host { --cell: min(4.6vw, 3dvh, 28px); }
+  .log { min-height: 0; }
+  .turn-msg { font-size: .72rem; }
+}
