@@ -224,6 +224,8 @@ html, body {
   justify-content: center;
   border: 1px dashed var(--line);
   border-radius: 8px;
+  touch-action: none;          /* 枠内のドラッグでスクロールしない */
+  cursor: grab;
 }
 .footer {
   width: 100%;
