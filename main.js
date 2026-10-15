@@ -511,7 +511,7 @@ function setupGuessInput() {
     }
     painting = true;
     last = { x: e.clientX, y: e.clientY };
-    board.setPointerCapture(e.pointerId);
+    try { board.setPointerCapture(e.pointerId); } catch (err) { /* 取得できなくても書き込みは続ける */ }
     paint(k);
   });
   board.addEventListener('pointermove', e => {
