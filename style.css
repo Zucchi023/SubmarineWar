@@ -396,6 +396,7 @@ html, body {
 .top-actions { display: flex; gap: 8px; align-items: center; }
 .btn.icon { padding: 6px 10px; font-size: 1.1rem; }
 
+
 /* 質問の確認待ち（もう一度タップで質問） */
 .cell.pending { background-color: rgba(62, 198, 232, .45) !important; animation: pulse .8s infinite alternate; }
 @keyframes pulse {
@@ -411,9 +412,35 @@ html, body {
   100% { transform: scale(1); }
 }
 
-/* メモ欄（「戻す」ボタン） */
+/* メモ欄（書き込み状況と「戻す」ボタン） */
 .memo-row { display: flex; align-items: center; gap: 8px; }
 #btn-undo { padding: 4px 8px; }
+
+/* 船ごとの書き込み状況 */
+.progress { display: flex; gap: 6px; }
+.prog {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 5px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: .8rem;
+  font-weight: 800;
+}
+.prog-label { margin-right: 2px; }
+.prog.t2 .prog-label { color: var(--s2); }
+.prog.t3 .prog-label { color: var(--s3); }
+.prog.t4 .prog-label { color: #c99bf0; }
+.prog.t5 .prog-label { color: #ff8a80; }
+.pip { width: 8px; height: 8px; border-radius: 2px; background: #2b4466; }
+.prog.t2 .pip.on { background: var(--s2); }
+.prog.t3 .pip.on { background: var(--s3); }
+.prog.t4 .pip.on { background: var(--s4); }
+.prog.t5 .pip.on { background: var(--s5); }
+.prog-over { color: var(--danger); font-size: .7rem; margin-left: 2px; }
+.prog.ok { border-color: #4cd97b; background: rgba(76, 217, 123, .12); }  /* 正しい形 */
+.prog.bad { border-color: var(--danger); background: rgba(255, 90, 82, .12); } /* 形・長さが違う */
 
 /* 「あなたのターン」の通知 */
 .turn-banner {

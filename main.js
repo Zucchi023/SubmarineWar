@@ -647,6 +647,7 @@ function startBattle() {
   setupGuessInput();
   selectTool('ask');
   $('log').innerHTML = '';
+  renderProgress();
   updateUndo();
   showScreen('screen-attack');
   addLog('system', '', `対戦開始！（CPU：${LEVEL_NAMES[level]}）`);
@@ -787,6 +788,7 @@ function paint(k) {
   if (game.guess[k] === v) return;
   game.guess[k] = v;
   paintValueCell(game.guessView.cells[k], v, false);
+  renderProgress();
 }
 
 // 書き込みを 1 手戻す（質問で確定したマスは戻さない）
@@ -799,10 +801,28 @@ function undo() {
     paintValueCell(game.guessView.cells[k], v, false);
   });
   updateUndo();
+  renderProgress();
 }
 
 function updateUndo() {
   $('btn-undo').disabled = game.undo.length === 0;
+}
+
+// 船ごとに「何マス書いたか」を表示（正しい形なら緑、長さ・形が違えば赤）
+function renderProgress() {
+  const box = $('progress');
+  box.innerHTML = '';
+  for (const len of SHIP_LENS) {
+    const cells = [];
+    game.guess.forEach((v, k) => v === len && cells.push(k));
+    const n = cells.length;
+    const state = n === 0 ? '' : isStraightShip(cells, len) ? ' ok' : n >= len ? ' bad' : '';
+    const g = el('div', `prog t${len}${state}`);
+    g.append(el('span', 'prog-label', len));
+    for (let i = 0; i < len; i++) g.append(el('span', 'pip' + (i < n ? ' on' : '')));
+    if (n > len) g.append(el('span', 'prog-over', '+' + (n - len)));
+    box.append(g);
+  }
 }
 
 // --- プレイヤーの質問 ---
@@ -838,6 +858,7 @@ function playerAsk(k) {
   const cell = game.guessView.cells[k];
   paintValueCell(cell, game.guess[k], true);
   flash(cell, 'reveal');
+  renderProgress();
   if (v) { SFX.hit(); vibrate(40); } else SFX.miss();
   addLog('player', 'あなた', `${coordName(k)} → ${v ? v + 'マスの船（命中！）' : 'ハズレ'}`);
 
