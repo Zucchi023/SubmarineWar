@@ -396,6 +396,13 @@ html, body {
 .top-actions { display: flex; gap: 8px; align-items: center; }
 .btn.icon { padding: 6px 10px; font-size: 1.1rem; }
 
+/* 質問の確認待ち（もう一度タップで質問） */
+.cell.pending { background-color: rgba(62, 198, 232, .45) !important; animation: pulse .8s infinite alternate; }
+@keyframes pulse {
+  from { box-shadow: inset 0 0 0 2px var(--accent); }
+  to { box-shadow: inset 0 0 0 4px #fff; }
+}
+
 /* 答えが出たマスのアニメーション */
 .cell.reveal { animation: reveal .45s ease-out; }
 @keyframes reveal {

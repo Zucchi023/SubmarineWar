@@ -209,6 +209,7 @@ const store = {
 
 // 設定（⚙ ボタンから変更できる）
 const settings = Object.assign({
+  confirmAsk: true, // 質問は 2 回タップで確定
   speed: 'normal',  // CPU の速さ
   sound: true,      // 効果音
   vibrate: true,    // 振動（対応端末のみ）
@@ -291,6 +292,7 @@ function showModal(html, buttons) {
 function openSettings() {
   showModal(`
     <h3 class="modal-title">設定</h3>
+    <label class="opt"><input type="checkbox" id="set-confirm">質問は2回タップで確定する</label>
     <label class="opt"><input type="checkbox" id="set-sound">効果音</label>
     <label class="opt"><input type="checkbox" id="set-vibrate">振動（対応端末のみ）</label>
     <label class="opt">CPUの速さ
@@ -307,6 +309,7 @@ function openSettings() {
     input.checked = settings[key];
     input.onchange = () => { settings[key] = input.checked; saveSettings(); };
   };
+  bind('set-confirm', 'confirmAsk');
   bind('set-sound', 'sound');
   bind('set-vibrate', 'vibrate');
   const speed = $('set-speed');
@@ -316,6 +319,9 @@ function openSettings() {
 
 function saveSettings() {
   store.set('settings', settings);
+  if (game && !game.over) {
+    clearPendingAsk();
+  }
 }
 
 /* =========================================================
@@ -630,6 +636,7 @@ function startBattle() {
     turn: 'player',
     over: false,
     tool: 'ask',
+    pendingAsk: null,                                // 質問の確認待ちのマス
     // ターン数（あなた→CPU で 1 ターン、お互い共通）と通算の質問回数
     stats: { turn: 0, asks: { player: 0, cpu: 0 } },
   };
@@ -683,6 +690,7 @@ function startPlayerTurn() {
   game.turn = 'player';
   game.asks = 0; // このターンに質問した回数
   game.stats.turn++; // 先攻（あなた）の番が来たら次のターン
+  clearPendingAsk();
   renderStats();
   $('btn-declare').disabled = false;
   setStatus('player', `「質問」を選んでマスをタップ（最大${MAX_ASKS}回）`);
@@ -692,6 +700,7 @@ function startPlayerTurn() {
 function startCpuTurn() {
   game.turn = 'cpu';
   game.asks = 0;
+  clearPendingAsk();
   $('btn-declare').disabled = true;
   setStatus('cpu', 'CPUが考えています…');
   later(cpuStep);
@@ -709,6 +718,7 @@ function showTurnBanner() {
 // --- 予想盤面への書き込み ---
 function selectTool(tool) {
   game.tool = tool;
+  clearPendingAsk();
   document.querySelectorAll('#toolbar .tool').forEach(b => b.classList.toggle('active', b.dataset.tool === tool));
   game.guessView.board.classList.toggle('ask-mode', tool === 'ask');
 }
@@ -731,7 +741,7 @@ function setupGuessInput() {
     e.preventDefault();
     const k = +cell.dataset.k;
     if (game.tool === 'ask') {
-      playerAsk(k);
+      onAskTap(k);
       return;
     }
     painting = true;
@@ -766,12 +776,31 @@ function paint(k) {
 }
 
 // --- プレイヤーの質問 ---
-function playerAsk(k) {
+// 誤タップ防止：1 回目でマスを選び、同じマスをもう一度タップで質問
+function onAskTap(k) {
   if (game.over || game.turn !== 'player') return;
   if (game.locked[k]) {
     setStatus('player', `${coordName(k)} は質問済みです`);
     return;
   }
+  if (settings.confirmAsk && game.pendingAsk !== k) {
+    clearPendingAsk();
+    game.pendingAsk = k;
+    game.guessView.cells[k].classList.add('pending');
+    setStatus('player', `${coordName(k)} をもう一度タップで質問`);
+    return;
+  }
+  playerAsk(k);
+}
+
+function clearPendingAsk() {
+  if (!game || game.pendingAsk === null) return;
+  game.guessView.cells[game.pendingAsk].classList.remove('pending');
+  game.pendingAsk = null;
+}
+
+function playerAsk(k) {
+  clearPendingAsk();
   const v = game.cpuBoard[k];
   // 回答を自動で書き込み、そのマスをロック
   game.guess[k] = v || X;
@@ -829,6 +858,7 @@ function isStraightShip(cells, len) {
 
 function playerDeclare() {
   if (game.over || game.turn !== 'player') return;
+  clearPendingAsk();
   const errors = validateGuess(game.guess);
   const html = errors.length
     ? `<ul>${errors.map(e => `<li>${e}</li>`).join('')}</ul><p>ですが「わかった」宣言をしますか？</p>`
