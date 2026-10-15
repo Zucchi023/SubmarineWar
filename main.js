@@ -15,6 +15,7 @@ const COLS = 'ABCDEF';
 const SHIP_LENS = [2, 3, 4, 5];
 const X = -1;            // 予想盤面の「×（船なし）」
 const CPU_DELAY = 800;   // CPU の 1 手ごとの間（ミリ秒）
+const MAX_ASKS = 3;      // 1 ターンに質問できる最大回数（命中しても 3 回で交代）
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]]; // 上下左右（斜めは含めない）
 
 const idx = (r, c) => r * SIZE + c;
@@ -453,12 +454,14 @@ function later(fn) {
 
 function startPlayerTurn() {
   game.turn = 'player';
+  game.asks = 0; // このターンに質問した回数
   $('btn-declare').disabled = false;
-  setStatus('player', '「質問」を選んでマスをタップ');
+  setStatus('player', `「質問」を選んでマスをタップ（最大${MAX_ASKS}回）`);
 }
 
 function startCpuTurn() {
   game.turn = 'cpu';
+  game.asks = 0;
   $('btn-declare').disabled = true;
   setStatus('cpu', 'CPUが考えています…');
   later(cpuStep);
@@ -536,8 +539,14 @@ function playerAsk(k) {
   paintValueCell(game.guessView.cells[k], game.guess[k], true);
   addLog('player', 'あなた', `${coordName(k)} → ${v ? v + 'マスの船（命中！）' : 'ハズレ'}`);
 
-  if (v) setStatus('player', '命中！続けて質問できます');
-  else startCpuTurn();
+  game.asks++;
+  // 命中なら続けて質問できるが、1 ターン MAX_ASKS 回まで
+  if (v && game.asks < MAX_ASKS) {
+    setStatus('player', `命中！続けて質問できます（あと${MAX_ASKS - game.asks}回）`);
+  } else {
+    if (v) addLog('system', '', `${MAX_ASKS}回質問したので交代です`);
+    startCpuTurn();
+  }
 }
 
 // --- プレイヤーの「わかった」宣言 ---
@@ -615,10 +624,12 @@ function cpuStep() {
   cell.textContent = v ? '✕' : '•';
   addLog('cpu', 'CPU', `${coordName(k)} → ${v ? v + 'マスの船（命中！）' : 'ハズレ'}`);
 
-  if (v) {
+  game.asks++;
+  if (v && game.asks < MAX_ASKS) {
     setStatus('cpu', 'CPUが命中！続けて質問します');
     later(cpuStep);
   } else {
+    if (v) addLog('system', '', `CPUが${MAX_ASKS}回質問したので交代です`);
     startPlayerTurn();
   }
 }
@@ -757,7 +768,7 @@ function showResult(declarer, cpuGuess) {
 
 const RULES_HTML = `
   <p><b>1. 配置</b>：2・3・4・5マスの船を1隻ずつ置きます。船同士は上下左右に接してはいけません（斜めはOK）。</p>
-  <p><b>2. 攻撃</b>：相手の盤面のマスを1つ質問すると、そこにある船の長さ（なければハズレ）がわかります。当たったら続けて質問でき、外れたら相手の番です。</p>
+  <p><b>2. 攻撃</b>：相手の盤面のマスを1つ質問すると、そこにある船の長さ（なければハズレ）がわかります。当たったら続けて質問できます（1ターン最大3回）。外れるか3回質問したら相手の番です。</p>
   <p><b>3. 判定</b>：自分の番に「わかった！」と宣言すると答え合わせ。相手の配置をすべて正確に当てていれば勝ち、間違っていれば負けです。</p>
   <p>予想盤面には 2〜5・× を自由に書き込んでメモできます。</p>`;
 
