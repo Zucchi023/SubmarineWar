@@ -191,7 +191,7 @@ function paintShipBoard(view, board) {
  * 保存・設定・効果音
  * ========================================================= */
 
-// ブラウザ内への保存：設定
+// ブラウザ内への保存：設定と初回ガイドの表示済みフラグ
 // （プライベートモードなどで使えなくても動くように try で囲む）
 const store = {
   get(key, def) {
@@ -289,6 +289,44 @@ function showModal(html, buttons) {
   $('modal').classList.remove('hidden');
 }
 
+// ページ送りのある説明（初回ガイド用）
+function showSteps(pages) {
+  let i = 0;
+  const next = () => {
+    const last = i === pages.length - 1;
+    const buttons = last ? [] : [{ label: 'スキップ' }];
+    buttons.push({ label: last ? 'はじめる' : '次へ', primary: true, onClick: last ? null : () => { i++; next(); } });
+    showModal(`<p class="step-count">${i + 1} / ${pages.length}</p>${pages[i]}`, buttons);
+  };
+  next();
+}
+
+// 初めてのときだけガイドを表示する
+function guideOnce(key, pages) {
+  const done = store.get('guide', {});
+  if (done[key]) return;
+  done[key] = true;
+  store.set('guide', done);
+  showSteps(pages);
+}
+
+const PLACE_GUIDE = [
+  `<h3>船を配置しよう</h3>
+   <p>船を<b>ドラッグ</b>してグリッドに置きます。<br>または船を<b>タップで選んで</b>から置きたいマスをタップ（タップしたマスから右／下へ置かれます）。</p>
+   <p>置いた船はタップで回転、ドラッグで移動できます。船同士は上下左右に接して置けません。</p>`,
+];
+const ATTACK_GUIDE = [
+  `<h3>質問する</h3>
+   <p>「質問」を選んで相手の盤面のマスをタップし、<b>もう一度タップ</b>すると質問します。船があればその長さ、なければ × が書き込まれます。</p>
+   <p>命中したら続けて質問できます（1ターン最大3回）。</p>`,
+  `<h3>メモする</h3>
+   <p>2〜5・× を選んで盤面をなぞると書き込めます。「消」で消去、「↶ 戻す」で1手戻せます。</p>
+   <p>盤面の下には各船を何マス書いたかが表示され、正しい形になると緑になります。</p>`,
+  `<h3>「わかった！」で勝負</h3>
+   <p>相手の配置がわかったら、自分の番に「わかった！」で宣言。全部正しければ勝ち、1マスでも違えば負けです。</p>
+   <p>右上の ⚙ から、質問の確認・推理の補助・CPUの速さ・効果音などを変更できます。</p>`,
+];
+
 // 設定画面
 function openSettings() {
   showModal(`
@@ -348,6 +386,7 @@ function startPlacement() {
   buildTray();
   renderPlacement();
   showScreen('screen-place');
+  guideOnce('place', PLACE_GUIDE);
 }
 
 // 現在グリッドに置かれている船から盤面配列を作る
@@ -658,6 +697,7 @@ function startBattle() {
   showScreen('screen-attack');
   addLog('system', '', `対戦開始！（CPU：${LEVEL_NAMES[level]}）`);
   startPlayerTurn();
+  guideOnce('attack', ATTACK_GUIDE);
 }
 
 // ターン表示

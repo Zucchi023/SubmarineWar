@@ -474,8 +474,9 @@ html, body {
 /* ---------- 結果画面 ---------- */
 .result-head h2.pop { animation: reveal .5s ease-out; }
 
-/* ---------- ダイアログ（設定） ---------- */
+/* ---------- ダイアログ（設定・ガイド） ---------- */
 .modal-title { margin: 0 0 10px; font-size: 1.1rem; }
+.modal-box h3 { margin: 0 0 8px; }
 .opt { display: flex; align-items: center; gap: 8px; margin: 12px 0; }
 .opt input[type="checkbox"] { width: 18px; height: 18px; }
 .opt select {
@@ -487,6 +488,7 @@ html, body {
   border-radius: 6px;
   padding: 4px 8px;
 }
+.step-count { color: var(--muted); font-size: .75rem; }
 
 /* ---------- 縦長画面（スマホ）用 ---------- */
 @media (max-aspect-ratio: 1/1) {
