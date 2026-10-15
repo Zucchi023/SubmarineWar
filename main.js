@@ -648,7 +648,7 @@ function startBattle() {
   };
   game.guessView = makeBoard($('guess-board-host'));
   game.miniView = makeBoard($('mini-board-host'));
-  paintShipBoard(game.miniView, game.myBoard);
+  renderMyBoard(game.miniView);
   setupGuessInput();
   selectTool('ask');
   $('log').innerHTML = '';
@@ -841,6 +841,25 @@ function renderAssist() {
     cell.classList.toggle('hint-x', settings.assist && empty[k] && !game.locked[k]));
 }
 
+// 自分の盤面（船と CPU に聞かれたマスの印）を描く
+function renderMyBoard(view) {
+  paintShipBoard(view, game.myBoard);
+  view.cells.forEach((cell, k) => {
+    const v = game.cpuKnown[k];
+    if (v !== null) {
+      cell.classList.add(v ? 'hit' : 'miss');
+      cell.textContent = v ? '✕' : '•';
+    }
+  });
+}
+
+// 自分の盤面を大きく表示
+function openMyBoard() {
+  if (!game) return;
+  showModal('<h3 class="modal-title">自分の盤面</h3><div id="big-board"></div>', [{ label: '閉じる', primary: true }]);
+  renderMyBoard(makeBoard($('big-board')));
+}
+
 // --- プレイヤーの質問 ---
 // 誤タップ防止：1 回目でマスを選び、同じマスをもう一度タップで質問
 function onAskTap(k) {
@@ -963,10 +982,8 @@ function cpuStep() {
   game.candidates = game.candidates.filter(code => layoutValueAt(code, k) === v);
 
   // 自分の盤面に印をつける
-  const cell = game.miniView.cells[k];
-  cell.classList.add(v ? 'hit' : 'miss');
-  cell.textContent = v ? '✕' : '•';
-  flash(cell, 'reveal');
+  renderMyBoard(game.miniView);
+  flash(game.miniView.cells[k], 'reveal');
   if (v) { SFX.hit(); vibrate(40); } else SFX.miss();
   addLog('cpu', 'CPU', `${coordName(k)} → ${v ? v + 'マスの船（命中！）' : 'ハズレ'}`);
 
@@ -1123,6 +1140,7 @@ $('btn-random').onclick = randomPlacement;
 $('btn-place-ok').onclick = startBattle;
 $('btn-declare').onclick = playerDeclare;
 $('btn-undo').onclick = undo;
+$('mini-board-host').onclick = openMyBoard;
 $('btn-retry').onclick = startPlacement;
 $('btn-to-title').onclick = () => showScreen('screen-title');
 document.querySelectorAll('#toolbar .tool').forEach(b => (b.onclick = () => selectTool(b.dataset.tool)));

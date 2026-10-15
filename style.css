@@ -443,6 +443,10 @@ html, body {
 .prog.ok { border-color: #4cd97b; background: rgba(76, 217, 123, .12); }  /* 正しい形 */
 .prog.bad { border-color: var(--danger); background: rgba(255, 90, 82, .12); } /* 形・長さが違う */
 
+/* 自分の盤面の拡大 */
+#mini-board-host { cursor: zoom-in; }
+#big-board { --cell: min(12vw, 7dvh, 48px); display: flex; justify-content: center; }
+
 /* 「あなたのターン」の通知 */
 .turn-banner {
   position: fixed;
