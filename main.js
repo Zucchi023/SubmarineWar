@@ -435,6 +435,7 @@ function setStatus(who, msg) {
   $('turn-msg').textContent = msg;
 }
 
+
 function addLog(who, name, text) {
   const li = el('li', who);
   if (name) li.append(el('span', 'who', name));
@@ -661,44 +662,8 @@ function chooseCpuCell() {
   return chooseStrong(unknown);
 }
 
-// 普通：命中したマスの周りを優先し、ルール上ありえないマスは避ける
+// 普通：残りの全配置候補を数え、船がある確率が一番高いマスを選ぶ（命中を狙う）
 function chooseNormal(unknown) {
-  const K = game.cpuKnown;
-  const hits = { 2: [], 3: [], 4: [], 5: [] };
-  K.forEach((v, k) => v > 0 && hits[v].push(k));
-
-  // ありえないマス：見つけ終わった船の隣・2 種類の船の隣・船の列からずれた隣
-  const impossible = k => {
-    const lens = new Set();
-    for (const n of neighbors(k)) {
-      const L = K[n];
-      if (!(L > 0)) continue;
-      lens.add(L);
-      if (hits[L].length >= L) return true;
-      if (hits[L].length >= 2 && !inLine(k, hits[L])) return true;
-    }
-    return lens.size >= 2;
-  };
-
-  const ok = unknown.filter(k => !impossible(k));
-  // 追撃：見つけかけの船の隣
-  const targets = [];
-  for (const len of SHIP_LENS) {
-    if (hits[len].length === 0 || hits[len].length >= len) continue;
-    for (const h of hits[len]) for (const n of neighbors(h)) if (ok.includes(n)) targets.push(n);
-  }
-  if (targets.length) return randItem(targets);
-  return randItem(ok.length ? ok : unknown);
-}
-
-// k が hits と同じ行（または列）の並びに乗っているか
-function inLine(k, hits) {
-  const sameRow = hits.every(h => rowOf(h) === rowOf(hits[0]));
-  return sameRow ? rowOf(k) === rowOf(hits[0]) : colOf(k) === colOf(hits[0]);
-}
-
-// 強い：残りの全配置候補を数え、船がある確率が一番高いマスを選ぶ
-function chooseStrong(unknown) {
   const count = Array(36).fill(0);
   for (const code of game.candidates) {
     for (const p of layoutShips(code)) for (const k of p.cells) count[k]++;
@@ -707,6 +672,27 @@ function chooseStrong(unknown) {
   for (const k of unknown) {
     if (count[k] > best) { best = count[k]; bestCells = [k]; }
     else if (count[k] === best) bestCells.push(k);
+  }
+  return randItem(bestCells);
+}
+
+// 強い：答えを聞いたあとに残る配置候補の数（期待値）が一番少なくなるマスを選ぶ
+//       = 1 回の質問で得られる情報が最も多いマス。答えが分かりきったマスは聞かない
+function chooseStrong(unknown) {
+  const cand = game.candidates, N = cand.length;
+  let best = Infinity, bestCells = [];
+  for (const k of unknown) {
+    // マス k の答え（0, 2〜5）ごとに候補を数える
+    const cnt = [0, 0, 0, 0, 0, 0];
+    for (let i = 0; i < N; i++) cnt[layoutValueAt(cand[i], k)]++;
+    // 残る候補数の期待値 = Σ(答えごとの候補数²) / N
+    let expected = 0;
+    for (const c of cnt) expected += c * c;
+    expected /= N;
+    // 同点なら命中しやすい（続けて質問できる）マスを優先
+    const score = expected - ((N - cnt[0]) / N) * 1e-6;
+    if (score < best - 1e-9) { best = score; bestCells = [k]; }
+    else if (Math.abs(score - best) < 1e-9) bestCells.push(k);
   }
   return randItem(bestCells);
 }
