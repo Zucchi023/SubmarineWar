@@ -210,6 +210,7 @@ const store = {
 // 設定（⚙ ボタンから変更できる）
 const settings = Object.assign({
   confirmAsk: true, // 質問は 2 回タップで確定
+  assist: false,    // 推理の補助（ありえないマスに薄い ×）
   speed: 'normal',  // CPU の速さ
   sound: true,      // 効果音
   vibrate: true,    // 振動（対応端末のみ）
@@ -293,6 +294,7 @@ function openSettings() {
   showModal(`
     <h3 class="modal-title">設定</h3>
     <label class="opt"><input type="checkbox" id="set-confirm">質問は2回タップで確定する</label>
+    <label class="opt"><input type="checkbox" id="set-assist">推理の補助（ありえないマスに薄く × を表示）</label>
     <label class="opt"><input type="checkbox" id="set-sound">効果音</label>
     <label class="opt"><input type="checkbox" id="set-vibrate">振動（対応端末のみ）</label>
     <label class="opt">CPUの速さ
@@ -310,6 +312,7 @@ function openSettings() {
     input.onchange = () => { settings[key] = input.checked; saveSettings(); };
   };
   bind('set-confirm', 'confirmAsk');
+  bind('set-assist', 'assist');
   bind('set-sound', 'sound');
   bind('set-vibrate', 'vibrate');
   const speed = $('set-speed');
@@ -321,6 +324,7 @@ function saveSettings() {
   store.set('settings', settings);
   if (game && !game.over) {
     clearPendingAsk();
+    renderAssist();
   }
 }
 
@@ -633,6 +637,7 @@ function startBattle() {
     locked: Array(36).fill(false),                   // 質問済み（確定）マス
     cpuKnown: Array(36).fill(null),                  // CPU が質問して知った情報
     candidates: ALL_LAYOUTS,                         // CPU から見て残っている配置候補
+    playerCands: ALL_LAYOUTS,                        // あなたの質問の答えと矛盾しない配置候補（推理の補助用）
     turn: 'player',
     over: false,
     tool: 'ask',
@@ -648,6 +653,7 @@ function startBattle() {
   selectTool('ask');
   $('log').innerHTML = '';
   renderProgress();
+  renderAssist();
   updateUndo();
   showScreen('screen-attack');
   addLog('system', '', `対戦開始！（CPU：${LEVEL_NAMES[level]}）`);
@@ -825,6 +831,16 @@ function renderProgress() {
   }
 }
 
+// 推理の補助：答えと矛盾しないどの配置でも「船がない」マスに薄い × を出す
+function renderAssist() {
+  const empty = Array(36).fill(true);
+  if (settings.assist) {
+    for (const code of game.playerCands) for (const p of layoutShips(code)) for (const k of p.cells) empty[k] = false;
+  }
+  game.guessView.cells.forEach((cell, k) =>
+    cell.classList.toggle('hint-x', settings.assist && empty[k] && !game.locked[k]));
+}
+
 // --- プレイヤーの質問 ---
 // 誤タップ防止：1 回目でマスを選び、同じマスをもう一度タップで質問
 function onAskTap(k) {
@@ -858,6 +874,8 @@ function playerAsk(k) {
   const cell = game.guessView.cells[k];
   paintValueCell(cell, game.guess[k], true);
   flash(cell, 'reveal');
+  game.playerCands = game.playerCands.filter(code => layoutValueAt(code, k) === v);
+  renderAssist();
   renderProgress();
   if (v) { SFX.hit(); vibrate(40); } else SFX.miss();
   addLog('player', 'あなた', `${coordName(k)} → ${v ? v + 'マスの船（命中！）' : 'ハズレ'}`);

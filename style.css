@@ -396,6 +396,7 @@ html, body {
 .top-actions { display: flex; gap: 8px; align-items: center; }
 .btn.icon { padding: 6px 10px; font-size: 1.1rem; }
 
+.cell.hint-x:empty::after { content: "×"; color: rgba(142, 163, 191, .3); } /* 推理の補助 */
 
 /* 質問の確認待ち（もう一度タップで質問） */
 .cell.pending { background-color: rgba(62, 198, 232, .45) !important; animation: pulse .8s infinite alternate; }
