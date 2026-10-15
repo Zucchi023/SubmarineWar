@@ -288,9 +288,16 @@ html, body {
   flex-direction: column;
   gap: 4px;
 }
-.log {
+.log-box {
+  position: relative;
   flex: 1;
-  min-height: 60px;
+  min-height: 3.5em;
+}
+.log {
+  /* 枠いっぱいに重ねて配置：中身の量が枠の大きさに影響しない */
+  position: absolute;
+  inset: 0;
+  overscroll-behavior: contain; /* ログの端までスクロールしても画面全体を動かさない */
   margin: 0;
   padding: 6px 8px;
   list-style: none;
@@ -378,6 +385,5 @@ html, body {
   #guess-board-host { --cell: min(12vw, 6.2dvh, 60px); }
   .side-col { flex-direction: row; }
   #mini-board-host { --cell: min(4.6vw, 3dvh, 28px); }
-  .log { min-height: 0; }
   .turn-msg { font-size: .72rem; }
 }

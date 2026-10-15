@@ -450,8 +450,10 @@ function addLog(who, name, text) {
   if (name) li.append(el('span', 'who', name));
   li.append(document.createTextNode(text));
   const log = $('log');
+  // 一番下を表示しているときだけ新しいログに追従（読み返し中は動かさない）
+  const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 8;
   log.append(li);
-  log.scrollTop = log.scrollHeight;
+  if (atBottom) log.scrollTop = log.scrollHeight;
 }
 
 // 一定時間後に fn を実行（ゲームが変わっていたら実行しない）
