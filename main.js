@@ -351,6 +351,16 @@ function placedBoard() {
   return b;
 }
 
+// 指定した船を除いた盤面配列（その船の置き直し判定用）
+function boardWithout(len) {
+  const s = place.ships[len];
+  const saved = s.r;
+  s.r = null;
+  const b = placedBoard();
+  s.r = saved;
+  return b;
+}
+
 // トレイ（船置き場）を作る：船 1 隻ごとに枠と回転ボタン
 function buildTray() {
   const tray = $('tray');
@@ -396,7 +406,7 @@ function renderPlacement() {
     const shipEl = makeShipEl(len, s.horiz);
 
     if (s.r !== null) {
-      // グリッド上：位置とサイズを % で指定して重ねる。ドラッグで移動
+      // グリッド上：位置とサイズを % で指定して重ねる。タップで回転・ドラッグで移動
       shipEl.addEventListener('pointerdown', e => pressStart(e, len, shipEl, false));
       shipEl.classList.add('placed');
       shipEl.style.left = (s.c / SIZE) * 100 + '%';
@@ -450,10 +460,12 @@ function pressEnd() {
   removePressListeners();
   place.press = null;
   if (!p) return;
-  // トレイの船をタップ：選択（もう一度タップで解除）
   if (place.ships[p.len].r === null) {
+    // トレイの船：選択（もう一度タップで解除）
     place.selected = place.selected === p.len ? null : p.len;
     renderPlacement();
+  } else {
+    rotatePlaced(p.len);
   }
 }
 
@@ -477,6 +489,18 @@ function onPlaceBoardClick(e) {
     renderPlacement();
   } else {
     showPlaceNg(len, s.horiz, r, c);
+  }
+}
+
+// グリッド上の船をその場で回転（左上のマスを軸にする）
+function rotatePlaced(len) {
+  const s = place.ships[len];
+  if (canPlace(boardWithout(len), len, !s.horiz, s.r, s.c)) {
+    s.horiz = !s.horiz;
+    SFX.place();
+    renderPlacement();
+  } else {
+    showPlaceNg(len, !s.horiz, s.r, s.c);
   }
 }
 
