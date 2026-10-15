@@ -380,6 +380,18 @@ html, body {
 /* ---------- タイトル ---------- */
 .title-links { display: flex; gap: 4px; }
 
+/* ---------- 配置フェーズ ---------- */
+.footer .btn { padding: 8px 10px; font-size: .85rem; }
+/* タップで選んだトレイの船 */
+.holder.selected { border: 2px solid var(--accent); background: rgba(62, 198, 232, .12); }
+.holder.selected .ship { opacity: 1; }
+/* 置けなかったマスを一瞬赤く */
+.cell.flash-ng { animation: flash-ng .5s; }
+@keyframes flash-ng {
+  0%, 100% { background-color: transparent; }
+  30%, 70% { background-color: rgba(255, 90, 82, .8); }
+}
+
 /* ---------- 攻撃フェーズ ---------- */
 .top-actions { display: flex; gap: 8px; align-items: center; }
 .btn.icon { padding: 6px 10px; font-size: 1.1rem; }

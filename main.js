@@ -250,6 +250,7 @@ const SFX = {
   miss: () => beep([220], 0.18, 'triangle'),
   turn: () => beep([520, 700], 0.07),
   place: () => beep([440], 0.05),
+  ng: () => beep([160], 0.12, 'square'),
   win: () => beep([523, 659, 784, 1047], 0.15),
   lose: () => beep([392, 330, 262], 0.22, 'triangle'),
 };
@@ -322,14 +323,18 @@ function saveSettings() {
  * ========================================================= */
 
 const place = {
-  ships: {},   // ships[len] = { horiz, r, c }（r が null ならトレイにある）
-  view: null,  // 配置用グリッド
-  drag: null,  // ドラッグ中の情報
+  ships: {},      // ships[len] = { horiz, r, c }（r が null ならトレイにある）
+  view: null,     // 配置用グリッド
+  drag: null,     // ドラッグ中の情報
+  press: null,    // 押した直後（タップかドラッグか未確定）の情報
+  selected: null, // タップで選んだトレイの船の長さ
 };
 
 function startPlacement() {
   for (const len of SHIP_LENS) place.ships[len] = { horiz: true, r: null, c: null };
+  place.selected = null;
   place.view = makeBoard($('place-board-host'));
+  place.view.board.addEventListener('click', onPlaceBoardClick);
   buildTray();
   renderPlacement();
   showScreen('screen-place');
@@ -354,10 +359,10 @@ function buildTray() {
     const slot = el('div', 'slot');
     const holder = el('div', 'holder');
     holder.id = 'holder-' + len;
-    // 枠のどこをドラッグしても、船の中心を持った状態で動かせる（スマホで掴みやすくするため）
+    // 枠のどこを押してもよい。ドラッグなら船の中心を持って移動、タップなら選択
     holder.addEventListener('pointerdown', e => {
       const shipEl = holder.querySelector('.ship');
-      if (shipEl) startDrag(e, len, shipEl, true);
+      if (shipEl) pressStart(e, len, shipEl, true);
     });
     const rot = el('button', 'btn small', '回転');
     rot.id = 'rot-' + len;
@@ -387,43 +392,120 @@ function renderPlacement() {
     const s = place.ships[len];
     const holder = $('holder-' + len);
     holder.innerHTML = '';
+    holder.classList.toggle('selected', place.selected === len);
     const shipEl = makeShipEl(len, s.horiz);
 
     if (s.r !== null) {
-      // グリッド上の船は掴んだマスを基準に動かす（トレイの船は枠側で処理）
-      shipEl.addEventListener('pointerdown', e => startDrag(e, len, shipEl, false));
-      // グリッド上：位置とサイズを % で指定して重ねる
+      // グリッド上：位置とサイズを % で指定して重ねる。ドラッグで移動
+      shipEl.addEventListener('pointerdown', e => pressStart(e, len, shipEl, false));
       shipEl.classList.add('placed');
       shipEl.style.left = (s.c / SIZE) * 100 + '%';
       shipEl.style.top = (s.r / SIZE) * 100 + '%';
       shipEl.style.width = ((s.horiz ? len : 1) / SIZE) * 100 + '%';
       shipEl.style.height = ((s.horiz ? 1 : len) / SIZE) * 100 + '%';
       board.append(shipEl);
-      $('rot-' + len).style.visibility = 'hidden'; // 置いた船は回転不可
+      $('rot-' + len).style.visibility = 'hidden';
     } else {
       holder.append(shipEl);
       $('rot-' + len).style.visibility = 'visible';
       allPlaced = false;
     }
   }
+
+  // 船を選んでいる間は、置けないマス（他の船とその上下左右）を赤く表示
+  const b = placedBoard();
+  place.view.cells.forEach((cell, k) =>
+    cell.classList.toggle('blocked', place.selected !== null && (!!b[k] || neighbors(k).some(n => b[n]))));
+
   $('btn-place-ok').disabled = !allPlaced;
 }
 
-// --- ドラッグ＆ドロップ（マウス・タッチ共通で Pointer Events を使う） ---
-// center = true なら船の中心を、false なら掴んだ位置をポインタに合わせる
-function startDrag(e, len, shipEl, center) {
-  if (place.drag) return;
+// --- 押す → 少し動いたらドラッグ、動かずに離したらタップ ---
+function pressStart(e, len, shipEl, center) {
+  if (place.drag || place.press) return;
   e.preventDefault();
+  place.press = { len, shipEl, center, x: e.clientX, y: e.clientY };
+  window.addEventListener('pointermove', pressMove);
+  window.addEventListener('pointerup', pressEnd);
+  window.addEventListener('pointercancel', pressCancel);
+}
+
+function removePressListeners() {
+  window.removeEventListener('pointermove', pressMove);
+  window.removeEventListener('pointerup', pressEnd);
+  window.removeEventListener('pointercancel', pressCancel);
+}
+
+function pressMove(e) {
+  const p = place.press;
+  if (!p || Math.hypot(e.clientX - p.x, e.clientY - p.y) < 8) return;
+  removePressListeners();
+  place.press = null;
+  startDrag(p.len, p.shipEl, p.center, p.x, p.y);
+  moveDrag(e);
+}
+
+function pressEnd() {
+  const p = place.press;
+  removePressListeners();
+  place.press = null;
+  if (!p) return;
+  // トレイの船をタップ：選択（もう一度タップで解除）
+  if (place.ships[p.len].r === null) {
+    place.selected = place.selected === p.len ? null : p.len;
+    renderPlacement();
+  }
+}
+
+function pressCancel() {
+  removePressListeners();
+  place.press = null;
+}
+
+// 船を選んだ状態でマスをタップ → そのマスから右（縦向きなら下）へ置く
+function onPlaceBoardClick(e) {
+  if (place.selected === null) return;
+  const cell = e.target.closest('.cell');
+  if (!cell) return;
+  const len = place.selected, s = place.ships[len];
+  const r = rowOf(+cell.dataset.k), c = colOf(+cell.dataset.k);
+  if (canPlace(placedBoard(), len, s.horiz, r, c)) {
+    s.r = r;
+    s.c = c;
+    place.selected = null;
+    SFX.place();
+    renderPlacement();
+  } else {
+    showPlaceNg(len, s.horiz, r, c);
+  }
+}
+
+// 置けなかった位置を一瞬赤く光らせる
+function showPlaceNg(len, horiz, r, c) {
+  SFX.ng();
+  vibrate(60);
+  for (const [rr, cc] of shipCells(len, horiz, r, c)) {
+    if (inside(rr, cc)) flash(place.view.cells[idx(rr, cc)], 'flash-ng');
+  }
+}
+
+// --- ドラッグ＆ドロップ（マウス・タッチ共通で Pointer Events を使う） ---
+// center = true なら船の中心を、false なら押した位置 (downX, downY) をポインタに合わせる
+function startDrag(len, shipEl, center, downX, downY) {
   const s = place.ships[len];
   const rect = shipEl.getBoundingClientRect();
   const unit = (s.horiz ? rect.width : rect.height) / len; // 今見えている 1 マスの大きさ
 
   // つかんだ位置を「船の左上から何マス分か」で覚えておく
-  const gx = center ? (s.horiz ? len : 1) / 2 : (e.clientX - rect.left) / unit;
-  const gy = center ? (s.horiz ? 1 : len) / 2 : (e.clientY - rect.top) / unit;
+  const gx = center ? (s.horiz ? len : 1) / 2 : (downX - rect.left) / unit;
+  const gy = center ? (s.horiz ? 1 : len) / 2 : (downY - rect.top) / unit;
 
+  place.selected = null;
   s.r = s.c = null; // 盤面から一旦外す
-  shipEl.classList.add('drag-source');
+  renderPlacement();
+  // 描き直しで船の要素が作り直されるので、元の場所の船を薄くする
+  const source = $('holder-' + len).querySelector('.ship');
+  if (source) source.classList.add('drag-source');
 
   // 指に追従する船（グリッドの 1 マスと同じ大きさで表示）
   const gridCell = place.view.board.clientWidth / SIZE;
@@ -432,13 +514,12 @@ function startDrag(e, len, shipEl, center) {
   ghost.style.setProperty('--cell', gridCell + 'px');
   document.body.append(ghost);
 
-  // 他の船があって置けないマス（船のマスとその上下左右）を赤くする
+  // 他の船があって置けないマスを赤くする
   const b = placedBoard();
   place.view.cells.forEach((cell, k) =>
     cell.classList.toggle('blocked', !!b[k] || neighbors(k).some(n => b[n])));
 
   place.drag = { len, ghost, gx, gy, gridCell, target: null };
-  moveDrag(e);
   window.addEventListener('pointermove', moveDrag);
   window.addEventListener('pointerup', endDrag);
   window.addEventListener('pointercancel', endDrag);
@@ -495,11 +576,13 @@ function randomPlacement() {
   for (const p of layoutShips(randItem(ALL_LAYOUTS))) {
     place.ships[p.len] = { horiz: p.horiz, r: p.r, c: p.c };
   }
+  place.selected = null;
   renderPlacement();
 }
 
 function resetPlacement() {
   for (const len of SHIP_LENS) place.ships[len].r = place.ships[len].c = null;
+  place.selected = null;
   renderPlacement();
 }
 
