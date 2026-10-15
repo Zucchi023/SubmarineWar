@@ -248,6 +248,7 @@ function beep(freqs, dur = 0.12, type = 'sine') {
 const SFX = {
   hit: () => beep([660, 880], 0.1),
   miss: () => beep([220], 0.18, 'triangle'),
+  turn: () => beep([520, 700], 0.07),
   place: () => beep([440], 0.05),
   win: () => beep([523, 659, 784, 1047], 0.15),
   lose: () => beep([392, 330, 262], 0.22, 'triangle'),
@@ -578,6 +579,7 @@ function startPlayerTurn() {
   renderStats();
   $('btn-declare').disabled = false;
   setStatus('player', `「質問」を選んでマスをタップ（最大${MAX_ASKS}回）`);
+  showTurnBanner();
 }
 
 function startCpuTurn() {
@@ -586,6 +588,15 @@ function startCpuTurn() {
   $('btn-declare').disabled = true;
   setStatus('cpu', 'CPUが考えています…');
   later(cpuStep);
+}
+
+// 「あなたのターン」を大きく表示し、音と振動で知らせる
+function showTurnBanner() {
+  const banner = $('turn-banner');
+  banner.textContent = 'あなたのターン';
+  flash(banner, 'show', 1100);
+  SFX.turn();
+  vibrate(80);
 }
 
 // --- 予想盤面への書き込み ---
