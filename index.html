@@ -85,9 +85,17 @@
           <div class="panel-title">自分の盤面</div>
           <div id="mini-board-host"></div>
         </div>
-        <div class="log-wrap">
-          <div class="panel-title">質問ログ</div>
-          <ol id="log" class="log"></ol>
+        <div class="info-col">
+          <!-- 質問回数・ターン数 -->
+          <div class="stats">
+            <div id="stats-turn" class="stats-turn"></div>
+            <div><span class="who-player">あなた</span><span id="stats-player"></span></div>
+            <div><span class="who-cpu">CPU</span><span id="stats-cpu"></span></div>
+          </div>
+          <div class="log-wrap">
+            <div class="panel-title">質問ログ</div>
+            <ol id="log" class="log"></ol>
+          </div>
         </div>
       </div>
     </div>
@@ -98,6 +106,7 @@
     <div class="result-head">
       <h2 id="result-title"></h2>
       <p id="result-sub"></p>
+      <p id="result-stats" class="result-stats"></p>
     </div>
     <div class="result-boards">
       <div class="result-col">

@@ -415,6 +415,8 @@ function startBattle() {
     turn: 'player',
     over: false,
     tool: 'ask',
+    // ターン数（あなた→CPU で 1 ターン、お互い共通）と通算の質問回数
+    stats: { turn: 0, asks: { player: 0, cpu: 0 } },
   };
   game.guessView = makeBoard($('guess-board-host'));
   game.miniView = makeBoard($('mini-board-host'));
@@ -435,6 +437,13 @@ function setStatus(who, msg) {
   $('turn-msg').textContent = msg;
 }
 
+// 質問回数・ターン数の表示を更新
+function renderStats() {
+  const s = game.stats;
+  $('stats-turn').textContent = `${s.turn}ターン目`;
+  $('stats-player').textContent = `質問 ${s.asks.player}回`;
+  $('stats-cpu').textContent = `質問 ${s.asks.cpu}回`;
+}
 
 function addLog(who, name, text) {
   const li = el('li', who);
@@ -456,6 +465,8 @@ function later(fn) {
 function startPlayerTurn() {
   game.turn = 'player';
   game.asks = 0; // このターンに質問した回数
+  game.stats.turn++; // 先攻（あなた）の番が来たら次のターン
+  renderStats();
   $('btn-declare').disabled = false;
   setStatus('player', `「質問」を選んでマスをタップ（最大${MAX_ASKS}回）`);
 }
@@ -541,6 +552,8 @@ function playerAsk(k) {
   addLog('player', 'あなた', `${coordName(k)} → ${v ? v + 'マスの船（命中！）' : 'ハズレ'}`);
 
   game.asks++;
+  game.stats.asks.player++;
+  renderStats();
   // 命中なら続けて質問できるが、1 ターン MAX_ASKS 回まで
   if (v && game.asks < MAX_ASKS) {
     setStatus('player', `命中！続けて質問できます（あと${MAX_ASKS - game.asks}回）`);
@@ -626,6 +639,8 @@ function cpuStep() {
   addLog('cpu', 'CPU', `${coordName(k)} → ${v ? v + 'マスの船（命中！）' : 'ハズレ'}`);
 
   game.asks++;
+  game.stats.asks.cpu++;
+  renderStats();
   if (v && game.asks < MAX_ASKS) {
     setStatus('cpu', 'CPUが命中！続けて質問します');
     later(cpuStep);
@@ -731,6 +746,9 @@ function showResult(declarer, cpuGuess) {
   $('result-sub').textContent = declarer === 'player'
     ? (correct ? 'CPUの配置をすべて当てました！' : `${wrongCount}マス違っていました`)
     : (correct ? 'CPUにすべての配置を当てられました' : `CPUの予想は${wrongCount}マス違っていました`);
+  const s = game.stats;
+  $('result-stats').textContent =
+    `${s.turn}ターン目　あなた：質問 ${s.asks.player}回　CPU：質問 ${s.asks.cpu}回`;
 
   const left = makeBoard($('result-left'));
   left.cells.forEach((cell, k) => paintValueCell(cell, leftVals[k], leftLocked[k]));
