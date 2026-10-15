@@ -384,9 +384,21 @@ html, body {
 .top-actions { display: flex; gap: 8px; align-items: center; }
 .btn.icon { padding: 6px 10px; font-size: 1.1rem; }
 
+/* 答えが出たマスのアニメーション */
+.cell.reveal { animation: reveal .45s ease-out; }
+@keyframes reveal {
+  0% { transform: scale(.4); }
+  60% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+/* ---------- 結果画面 ---------- */
+.result-head h2.pop { animation: reveal .5s ease-out; }
+
 /* ---------- ダイアログ（設定） ---------- */
 .modal-title { margin: 0 0 10px; font-size: 1.1rem; }
 .opt { display: flex; align-items: center; gap: 8px; margin: 12px 0; }
+.opt input[type="checkbox"] { width: 18px; height: 18px; }
 .opt select {
   font: inherit;
   margin-left: auto;

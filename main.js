@@ -188,7 +188,7 @@ function paintShipBoard(view, board) {
 }
 
 /* =========================================================
- * 保存・設定
+ * 保存・設定・効果音
  * ========================================================= */
 
 // ブラウザ内への保存：設定
@@ -210,9 +210,56 @@ const store = {
 // 設定（⚙ ボタンから変更できる）
 const settings = Object.assign({
   speed: 'normal',  // CPU の速さ
+  sound: true,      // 効果音
+  vibrate: true,    // 振動（対応端末のみ）
 }, store.get('settings', {}));
 
 const cpuDelay = () => SPEEDS[settings.speed] || SPEEDS.normal;
+
+function vibrate(pattern) {
+  if (!settings.vibrate || !navigator.vibrate) return;
+  // 画面に一度も触れていないうちに呼ぶとブラウザに拒否されるので呼ばない
+  if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return;
+  navigator.vibrate(pattern);
+}
+
+// 効果音（Web Audio で簡単な電子音を鳴らす）
+let audioCtx = null;
+function beep(freqs, dur = 0.12, type = 'sine') {
+  if (!settings.sound) return;
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const t0 = audioCtx.currentTime;
+    freqs.forEach((f, i) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      const start = t0 + i * dur;
+      osc.type = type;
+      osc.frequency.value = f;
+      gain.gain.setValueAtTime(0.15, start);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + dur);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(start);
+      osc.stop(start + dur);
+    });
+  } catch (e) { /* 音が出せない環境では鳴らさない */ }
+}
+const SFX = {
+  hit: () => beep([660, 880], 0.1),
+  miss: () => beep([220], 0.18, 'triangle'),
+  place: () => beep([440], 0.05),
+  win: () => beep([523, 659, 784, 1047], 0.15),
+  lose: () => beep([392, 330, 262], 0.22, 'triangle'),
+};
+
+// 一瞬だけクラスを付ける（アニメーション用）
+function flash(elm, cls, ms = 500) {
+  elm.classList.remove(cls);
+  void elm.offsetWidth; // アニメーションを最初から再生させるため
+  elm.classList.add(cls);
+  setTimeout(() => elm.classList.remove(cls), ms);
+}
 
 /* =========================================================
  * 画面切り替え・ダイアログ
@@ -242,6 +289,8 @@ function showModal(html, buttons) {
 function openSettings() {
   showModal(`
     <h3 class="modal-title">設定</h3>
+    <label class="opt"><input type="checkbox" id="set-sound">効果音</label>
+    <label class="opt"><input type="checkbox" id="set-vibrate">振動（対応端末のみ）</label>
     <label class="opt">CPUの速さ
       <select id="set-speed">
         <option value="slow">遅い</option>
@@ -251,6 +300,13 @@ function openSettings() {
     </label>`, [{ label: '閉じる', primary: true }]);
 
   // 変更したらすぐ反映・保存する
+  const bind = (id, key) => {
+    const input = $(id);
+    input.checked = settings[key];
+    input.onchange = () => { settings[key] = input.checked; saveSettings(); };
+  };
+  bind('set-sound', 'sound');
+  bind('set-vibrate', 'vibrate');
   const speed = $('set-speed');
   speed.value = settings.speed;
   speed.onchange = () => { settings.speed = speed.value; saveSettings(); };
@@ -426,6 +482,7 @@ function endDrag() {
   if (d.target) {
     place.ships[d.len].r = d.target.r;
     place.ships[d.len].c = d.target.c;
+    SFX.place();
   }
   d.ghost.remove();
   place.view.cells.forEach(cell => cell.classList.remove('blocked', 'preview-ok', 'preview-ng'));
@@ -603,6 +660,8 @@ function playerAsk(k) {
   game.locked[k] = true;
   const cell = game.guessView.cells[k];
   paintValueCell(cell, game.guess[k], true);
+  flash(cell, 'reveal');
+  if (v) { SFX.hit(); vibrate(40); } else SFX.miss();
   addLog('player', 'あなた', `${coordName(k)} → ${v ? v + 'マスの船（命中！）' : 'ハズレ'}`);
 
   game.asks++;
@@ -690,6 +749,8 @@ function cpuStep() {
   const cell = game.miniView.cells[k];
   cell.classList.add(v ? 'hit' : 'miss');
   cell.textContent = v ? '✕' : '•';
+  flash(cell, 'reveal');
+  if (v) { SFX.hit(); vibrate(40); } else SFX.miss();
   addLog('cpu', 'CPU', `${coordName(k)} → ${v ? v + 'マスの船（命中！）' : 'ハズレ'}`);
 
   game.asks++;
@@ -797,6 +858,7 @@ function showResult(declarer, cpuGuess) {
   const title = $('result-title');
   title.textContent = playerWin ? 'あなたの勝ち！' : 'あなたの負け…';
   title.className = playerWin ? 'win' : 'lose';
+  flash(title, 'pop');
   $('result-sub').textContent = declarer === 'player'
     ? (correct ? 'CPUの配置をすべて当てました！' : `${wrongCount}マス違っていました`)
     : (correct ? 'CPUにすべての配置を当てられました' : `CPUの予想は${wrongCount}マス違っていました`);
@@ -817,6 +879,7 @@ function showResult(declarer, cpuGuess) {
     right.cells[k].classList.add('wrong');
   });
 
+  if (playerWin) { SFX.win(); vibrate([60, 40, 60]); } else { SFX.lose(); vibrate(200); }
   showScreen('screen-result');
 }
 
