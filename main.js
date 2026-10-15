@@ -637,6 +637,7 @@ function startBattle() {
     over: false,
     tool: 'ask',
     pendingAsk: null,                                // 質問の確認待ちのマス
+    undo: [],                                        // 「戻す」用の書き込み履歴
     // ターン数（あなた→CPU で 1 ターン、お互い共通）と通算の質問回数
     stats: { turn: 0, asks: { player: 0, cpu: 0 } },
   };
@@ -646,6 +647,7 @@ function startBattle() {
   setupGuessInput();
   selectTool('ask');
   $('log').innerHTML = '';
+  updateUndo();
   showScreen('screen-attack');
   addLog('system', '', `対戦開始！（CPU：${LEVEL_NAMES[level]}）`);
   startPlayerTurn();
@@ -726,7 +728,8 @@ function selectTool(tool) {
 function setupGuessInput() {
   const board = game.guessView.board;
   let painting = false;
-  let last = null; // 前回のポインタ位置
+  let last = null;   // 前回のポインタ位置
+  let before = null; // なぞり始める前の盤面（「戻す」用）
 
   // 画面上の座標 (x, y) にあるマスを探す
   const cellAt = (x, y) => {
@@ -745,6 +748,7 @@ function setupGuessInput() {
       return;
     }
     painting = true;
+    before = game.guess.slice();
     last = { x: e.clientX, y: e.clientY };
     try { board.setPointerCapture(e.pointerId); } catch (err) { /* 取得できなくても書き込みは続ける */ }
     paint(k);
@@ -761,7 +765,16 @@ function setupGuessInput() {
     }
     last = { x: e.clientX, y: e.clientY };
   });
-  const stop = () => (painting = false);
+  // なぞり終わり：変化があれば 1 手として「戻す」用に記録
+  const stop = () => {
+    if (!painting) return;
+    painting = false;
+    if (before.some((v, k) => v !== game.guess[k])) {
+      game.undo.push(before);
+      if (game.undo.length > 50) game.undo.shift();
+      updateUndo();
+    }
+  };
   board.addEventListener('pointerup', stop);
   board.addEventListener('pointercancel', stop);
 }
@@ -771,8 +784,25 @@ function paint(k) {
   if (game.locked[k]) return;
   const t = game.tool;
   const v = t === 'x' ? X : t === 'erase' ? 0 : +t;
+  if (game.guess[k] === v) return;
   game.guess[k] = v;
   paintValueCell(game.guessView.cells[k], v, false);
+}
+
+// 書き込みを 1 手戻す（質問で確定したマスは戻さない）
+function undo() {
+  const snap = game.undo.pop();
+  if (!snap) return;
+  snap.forEach((v, k) => {
+    if (game.locked[k]) return;
+    game.guess[k] = v;
+    paintValueCell(game.guessView.cells[k], v, false);
+  });
+  updateUndo();
+}
+
+function updateUndo() {
+  $('btn-undo').disabled = game.undo.length === 0;
 }
 
 // --- プレイヤーの質問 ---
@@ -1053,6 +1083,7 @@ $('btn-reset').onclick = resetPlacement;
 $('btn-random').onclick = randomPlacement;
 $('btn-place-ok').onclick = startBattle;
 $('btn-declare').onclick = playerDeclare;
+$('btn-undo').onclick = undo;
 $('btn-retry').onclick = startPlacement;
 $('btn-to-title').onclick = () => showScreen('screen-title');
 document.querySelectorAll('#toolbar .tool').forEach(b => (b.onclick = () => selectTool(b.dataset.tool)));

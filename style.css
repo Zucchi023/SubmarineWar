@@ -411,6 +411,10 @@ html, body {
   100% { transform: scale(1); }
 }
 
+/* メモ欄（「戻す」ボタン） */
+.memo-row { display: flex; align-items: center; gap: 8px; }
+#btn-undo { padding: 4px 8px; }
+
 /* 「あなたのターン」の通知 */
 .turn-banner {
   position: fixed;
