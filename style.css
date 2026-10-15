@@ -373,6 +373,30 @@ html, body {
 .modal-box p { margin: 6px 0; line-height: 1.6; }
 .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; }
 
+/* =========================================================
+ * 遊びやすさ向上のための追加スタイル
+ * ========================================================= */
+
+/* ---------- タイトル ---------- */
+.title-links { display: flex; gap: 4px; }
+
+/* ---------- 攻撃フェーズ ---------- */
+.top-actions { display: flex; gap: 8px; align-items: center; }
+.btn.icon { padding: 6px 10px; font-size: 1.1rem; }
+
+/* ---------- ダイアログ（設定） ---------- */
+.modal-title { margin: 0 0 10px; font-size: 1.1rem; }
+.opt { display: flex; align-items: center; gap: 8px; margin: 12px 0; }
+.opt select {
+  font: inherit;
+  margin-left: auto;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+
 /* ---------- 縦長画面（スマホ）用 ---------- */
 @media (max-aspect-ratio: 1/1) {
   .attack-layout {

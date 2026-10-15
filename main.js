@@ -14,9 +14,10 @@ const SIZE = 6;
 const COLS = 'ABCDEF';
 const SHIP_LENS = [2, 3, 4, 5];
 const X = -1;            // 予想盤面の「×（船なし）」
-const CPU_DELAY = 800;   // CPU の 1 手ごとの間（ミリ秒）
 const MAX_ASKS = 3;      // 1 ターンに質問できる最大回数（命中しても 3 回で交代）
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]]; // 上下左右（斜めは含めない）
+const SPEEDS = { fast: 300, normal: 800, slow: 1500 }; // CPU の 1 手ごとの間（ミリ秒）
+const LEVEL_NAMES = { weak: '弱い', normal: '普通', strong: '強い' };
 
 const idx = (r, c) => r * SIZE + c;
 const rowOf = k => Math.floor(k / SIZE);
@@ -187,6 +188,33 @@ function paintShipBoard(view, board) {
 }
 
 /* =========================================================
+ * 保存・設定
+ * ========================================================= */
+
+// ブラウザ内への保存：設定
+// （プライベートモードなどで使えなくても動くように try で囲む）
+const store = {
+  get(key, def) {
+    try {
+      const v = localStorage.getItem('subwar.' + key);
+      return v === null ? def : JSON.parse(v);
+    } catch (e) {
+      return def;
+    }
+  },
+  set(key, value) {
+    try { localStorage.setItem('subwar.' + key, JSON.stringify(value)); } catch (e) { /* 保存できなくても続行 */ }
+  },
+};
+
+// 設定（⚙ ボタンから変更できる）
+const settings = Object.assign({
+  speed: 'normal',  // CPU の速さ
+}, store.get('settings', {}));
+
+const cpuDelay = () => SPEEDS[settings.speed] || SPEEDS.normal;
+
+/* =========================================================
  * 画面切り替え・ダイアログ
  * ========================================================= */
 
@@ -208,6 +236,28 @@ function showModal(html, buttons) {
     box.append(btn);
   }
   $('modal').classList.remove('hidden');
+}
+
+// 設定画面
+function openSettings() {
+  showModal(`
+    <h3 class="modal-title">設定</h3>
+    <label class="opt">CPUの速さ
+      <select id="set-speed">
+        <option value="slow">遅い</option>
+        <option value="normal">普通</option>
+        <option value="fast">早い</option>
+      </select>
+    </label>`, [{ label: '閉じる', primary: true }]);
+
+  // 変更したらすぐ反映・保存する
+  const speed = $('set-speed');
+  speed.value = settings.speed;
+  speed.onchange = () => { settings.speed = speed.value; saveSettings(); };
+}
+
+function saveSettings() {
+  store.set('settings', settings);
 }
 
 /* =========================================================
@@ -425,7 +475,7 @@ function startBattle() {
   selectTool('ask');
   $('log').innerHTML = '';
   showScreen('screen-attack');
-  addLog('system', '', `対戦開始！（CPU：${{ weak: '弱い', normal: '普通', strong: '強い' }[level]}）`);
+  addLog('system', '', `対戦開始！（CPU：${LEVEL_NAMES[level]}）`);
   startPlayerTurn();
 }
 
@@ -461,7 +511,7 @@ function later(fn) {
   const id = game.id;
   setTimeout(() => {
     if (game && game.id === id && !game.over) fn();
-  }, CPU_DELAY);
+  }, cpuDelay());
 }
 
 function startPlayerTurn() {
@@ -535,8 +585,9 @@ function setupGuessInput() {
 function paint(k) {
   if (game.locked[k]) return;
   const t = game.tool;
-  game.guess[k] = t === 'x' ? X : t === 'erase' ? 0 : +t;
-  paintValueCell(game.guessView.cells[k], game.guess[k], false);
+  const v = t === 'x' ? X : t === 'erase' ? 0 : +t;
+  game.guess[k] = v;
+  paintValueCell(game.guessView.cells[k], v, false);
 }
 
 // --- プレイヤーの質問 ---
@@ -550,7 +601,8 @@ function playerAsk(k) {
   // 回答を自動で書き込み、そのマスをロック
   game.guess[k] = v || X;
   game.locked[k] = true;
-  paintValueCell(game.guessView.cells[k], game.guess[k], true);
+  const cell = game.guessView.cells[k];
+  paintValueCell(cell, game.guess[k], true);
   addLog('player', 'あなた', `${coordName(k)} → ${v ? v + 'マスの船（命中！）' : 'ハズレ'}`);
 
   game.asks++;
@@ -783,6 +835,8 @@ $('btn-start').onclick = () => {
   startPlacement();
 };
 $('btn-rules').onclick = () => showModal(RULES_HTML, [{ label: '閉じる', primary: true }]);
+$('btn-settings-title').onclick = openSettings;
+$('btn-settings').onclick = openSettings;
 $('btn-place-back').onclick = () => showScreen('screen-title');
 $('btn-reset').onclick = resetPlacement;
 $('btn-random').onclick = randomPlacement;
