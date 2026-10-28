@@ -1184,3 +1184,19 @@ $('mini-board-host').onclick = openMyBoard;
 $('btn-retry').onclick = startPlacement;
 $('btn-to-title').onclick = () => showScreen('screen-title');
 document.querySelectorAll('#toolbar .tool').forEach(b => (b.onclick = () => selectTool(b.dataset.tool)));
+
+// 背景の泡を生成（大きさ・位置・速さをランダムに）
+(function makeBubbles() {
+  const host = $('bubbles');
+  for (let i = 0; i < 24; i++) {
+    const b = el('span', 'bubble');
+    const size = 6 + Math.random() * 34;
+    b.style.width = b.style.height = size + 'px';
+    b.style.left = Math.random() * 100 + '%';
+    b.style.setProperty('--y', Math.random() * 100 + '%'); // 動きを止めたとき用の位置
+    b.style.setProperty('--sway', (Math.random() * 40 - 20) + 'px');
+    b.style.animationDuration = 8 + Math.random() * 14 + 's';
+    b.style.animationDelay = -Math.random() * 20 + 's';
+    host.appendChild(b);
+  }
+})();
